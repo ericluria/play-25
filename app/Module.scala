@@ -22,6 +22,7 @@ class Module extends AbstractModule {
     bind(classOf[ApplicationTimer]).asEagerSingleton()
     // Set AtomicCounter as the implementation for Counter.
     bind(classOf[Counter]).to(classOf[AtomicCounter])
+    // Bind `SayImpl` to `Say` at application startup, as a singleton
     bind(classOf[Say]).to(classOf[SayImpl]).asEagerSingleton()
   }
 

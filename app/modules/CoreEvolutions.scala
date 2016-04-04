@@ -1,11 +1,12 @@
 /*
  * Copyright (C) 2009-2016 Lightbend Inc. <https://www.lightbend.com>
  */
-package play.api.db.evolutions
+package com.jaroop.modules.evolutions
 
 import javax.inject._
 
 import play.api.db.DBApi
+import play.api.db.evolutions._
 import play.api.inject.{ Injector, Module }
 import play.api.{ Configuration, Environment }
 import play.core.WebCommands
@@ -13,44 +14,29 @@ import play.core.WebCommands
 /**
  * Default module for evolutions API.
  */
-class EvolutionsModule extends Module {
-  def bindings(environment: Environment, configuration: Configuration) = {
+class CoreEvolutionsModule extends EvolutionsModule {
+  override def bindings(environment: Environment, configuration: Configuration) = {
     Seq(
       bind[EvolutionsConfig].toProvider[DefaultEvolutionsConfigParser],
       bind[EvolutionsReader].to[EnvironmentEvolutionsReader],
-      bind[EvolutionsApi].to[DefaultEvolutionsApi],
+      bind[EvolutionsApi].to[CoreEvolutionsApi],
       bind[ApplicationEvolutions].toProvider[ApplicationEvolutionsProvider].eagerly
     )
   }
 }
 
-/**
- * Components for default implementation of the evolutions API.
- */
-trait EvolutionsComponents {
-  def environment: Environment
-  def configuration: Configuration
-  def dbApi: DBApi
-  def webCommands: WebCommands
-
-  lazy val dynamicEvolutions: DynamicEvolutions = new DynamicEvolutions
-  lazy val evolutionsConfig: EvolutionsConfig = new DefaultEvolutionsConfigParser(configuration).parse
-  lazy val evolutionsReader: EvolutionsReader = new EnvironmentEvolutionsReader(environment)
-  lazy val evolutionsApi: EvolutionsApi = new DefaultEvolutionsApi(dbApi)
-  lazy val applicationEvolutions: ApplicationEvolutions = new ApplicationEvolutions(evolutionsConfig, evolutionsReader, evolutionsApi, dynamicEvolutions, dbApi, environment, webCommands)
-}
-
 @Singleton
-class ApplicationEvolutionsProvider @Inject() (
-    config: EvolutionsConfig,
-    reader: EvolutionsReader,
-    evolutions: EvolutionsApi,
-    dbApi: DBApi,
-    environment: Environment,
-    webCommands: WebCommands,
-    injector: Injector) extends Provider[ApplicationEvolutions] {
+class CoreEvolutionsApi @Inject() (dbApi: DBApi, schema: String) extends EvolutionsApi {
 
-  lazy val get = new ApplicationEvolutions(config, reader, evolutions, injector.instanceOf[DynamicEvolutions], dbApi,
-    environment, webCommands)
+  private def databaseEvolutions(name: String, schema: String) = new DatabaseEvolutions(dbApi.database(name), "jaroop_core")
+
+  def scripts(db: String, evolutions: Seq[Evolution], schema: String) = databaseEvolutions(db, "jaroop_core").scripts(evolutions)
+
+  def scripts(db: String, reader: EvolutionsReader, schema: String) = databaseEvolutions(db, "jaroop_core").scripts(reader)
+
+  def resetScripts(db: String, schema: String) = databaseEvolutions(db, "jaroop_core").resetScripts()
+
+  def evolve(db: String, scripts: Seq[Script], autocommit: Boolean, schema: String) = databaseEvolutions(db, "jaroop_core").evolve(scripts, autocommit)
+
+  def resolve(db: String, revision: Int, schema: String) = databaseEvolutions(db, "jaroop_core").resolve(revision)
 }
-
